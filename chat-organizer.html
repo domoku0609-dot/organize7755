@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>聊天紀錄 RAG 整理工具</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: #20232a;
+      background: #f4f6fa;
+    }
+
+    * { box-sizing: border-box; }
+
+    body { margin: 0; padding: 32px 16px; }
+
+    main {
+      width: min(900px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+      background: #fff;
+      border: 1px solid #e3e7ef;
+      border-radius: 16px;
+      box-shadow: 0 12px 36px #26334d12;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 1.65rem; }
+    .intro, .help { color: #596273; line-height: 1.6; }
+    .intro { margin: 0 0 24px; }
+    .help { margin: 8px 0 0; font-size: .88rem; }
+
+    .field { margin: 18px 0; }
+    label, .field-title { display: block; margin-bottom: 7px; font-weight: 650; }
+
+    input[type="text"], input[type="password"], input[type="file"], textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid #cbd2df;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+    }
+
+    input:focus, textarea:focus {
+      outline: 3px solid #6b8cff30;
+      border-color: #5378eb;
+    }
+
+    .time-options { display: flex; gap: 10px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 15px;
+      background: #edf0f6;
+      color: #20232a;
+      font: inherit;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) { filter: brightness(.96); }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .time-option[aria-pressed="true"] { background: #e5ecff; color: #2048b5; outline: 2px solid #7895ef; }
+    .primary { background: #315fe8; color: #fff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    .status { min-height: 24px; margin: 16px 0 0; color: #495467; }
+    .status.error { color: #b42318; }
+    .result-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 24px; }
+    .result-head h2 { margin: 0; font-size: 1.15rem; }
+    textarea { min-height: 360px; margin-top: 10px; resize: vertical; font-family: ui-monospace, Consolas, monospace; line-height: 1.55; }
+    .security { padding: 12px 14px; border-radius: 8px; background: #fff8e6; color: #654d13; font-size: .88rem; line-height: 1.5; }
+
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      main { padding: 20px 16px; }
+      .result-head { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>聊天紀錄 RAG 整理工具</h1>
+    <p class="intro">上傳聊天文字檔，依時間模式將每 20 組對話逐片送給 Gemini 整理，再由程式合併成可複製的 Markdown 大綱。</p>
+
+    <div class="field">
+      <label for="api-key">Gemini API Key</label>
+      <input id="api-key" type="password" autocomplete="off" placeholder="貼上 Gemini API Key">
+    </div>
+    <div class="field">
+      <label for="api-endpoint">API 端點</label>
+      <input id="api-endpoint" type="text" value="https://generativelanguage.googleapis.com/v1beta">
+    </div>
+    <div class="field">
+      <label for="model">模型</label>
+      <input id="model" type="text" value="gemini-3.6-flash">
+    </div>
+    <div class="field">
+      <label for="file">聊天紀錄（.txt）</label>
+      <input id="file" type="file" accept=".txt,text/plain">
+    </div>
+    <div class="field">
+      <span class="field-title">時間模式</span>
+      <div class="time-options" role="group" aria-label="選擇時間模式">
+        <button class="time-option" type="button" data-mode="status" aria-pressed="true">狀態列</button>
+        <button class="time-option" type="button" data-mode="real" aria-pressed="false">真實時間</button>
+      </div>
+      <p class="help">結果的日期標題與時間欄位只會使用所選模式的時間來源。</p>
+    </div>
+    <p class="security">安全提醒：API Key 會由此瀏覽器直接傳給 Google，僅保留在目前頁面記憶體中。請勿在共用或公開的電腦使用；若部署網站，請為 API Key 設定限制。</p>
+
+    <div class="actions">
+      <button id="run" class="primary" type="button">開始整理</button>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <div class="result-head">
+      <h2>整理結果</h2>
+      <button id="copy" type="button" disabled>複製整理結果</button>
+    </div>
+    <textarea id="result" aria-label="整理結果" placeholder="整理完成後會顯示在這裡"></textarea>
+  </main>
+
+  <script>
+    const apiKeyInput = document.getElementById("api-key");
+    const endpointInput = document.getElementById("api-endpoint");
+    const modelInput = document.getElementById("model");
+    const fileInput = document.getElementById("file");
+    const runButton = document.getElementById("run");
+    const copyButton = document.getElementById("copy");
+    const resultBox = document.getElementById("result");
+    const statusBox = document.getElementById("status");
+    const timeButtons = Array.from(document.querySelectorAll(".time-option"));
+    let timeMode = "status";
+
+    for (const button of timeButtons) {
+      button.addEventListener("click", () => {
+        timeMode = button.dataset.mode;
+        for (const option of timeButtons) {
+          option.setAttribute("aria-pressed", String(option === button));
+        }
+      });
+    }
+
+    function setStatus(message, isError) {
+      statusBox.textContent = message;
+      statusBox.classList.toggle("error", Boolean(isError));
+    }
+
+    function parseMessages(text) {
+      const marker = /^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*([^:\r\n]+):[ \t]*/gm;
+      const starts = Array.from(text.matchAll(marker));
+      if (starts.length === 0) {
+        throw new Error("找不到符合格式的時間戳記，例如 [2026-01-29 00:00:53] 角色名稱:");
+      }
+
+      return starts.map((match, index) => {
+        const bodyStart = match.index + match[0].length;
+        const bodyEnd = index + 1 < starts.length ? starts[index + 1].index : text.length;
+        return {
+          timestamp: match[1],
+          role: match[2].trim(),
+          text: text.slice(bodyStart, bodyEnd).trim()
+        };
+      });
+    }
+
+    function pairMessages(messages) {
+      const pairs = [];
+      for (let i = 0; i < messages.length; i += 2) {
+        pairs.push({
+          number: pairs.length + 1,
+          messages: messages.slice(i, i + 2),
+          incomplete: i + 1 >= messages.length
+        });
+      }
+      return pairs;
+    }
+
+    function splitChunks(pairs, size) {
+      const chunks = [];
+      for (let i = 0; i < pairs.length; i += size) {
+        chunks.push(pairs.slice(i, i + size));
+      }
+      return chunks;
+    }
+
+    function formatPair(pair) {
+      const lines = [`--- 對話組 ${pair.number}${pair.incomplete ? "（檔案結尾未配對）" : ""} ---`];
+      for (const message of pair.messages) {
+        lines.push(`[${message.timestamp}] ${message.role}:`, message.text);
+      }
+      return lines.join("\n");
+    }
+
+    function buildChunkPrompt(chunk, chunkNumber, totalChunks, previousSummary) {
+      const modeInstruction = timeMode === "status"
+        ? "時間模式為「狀態列」。只從場景內的「時間：」欄取日期與時間；日期標題使用如「# 十二月二十四日」，時間欄使用如「- 時間：十二月二十四日 - 21:00。」。不可使用訊息時間戳記。"
+        : "時間模式為「真實時間」。只從訊息時間戳記取日期與時間；日期標題使用如「# 2026年01月29日」，時間欄使用如「- 時間：2026年01月29日 - 00:08。」；省略秒數。不可使用場景內「時間：」欄。";
+
+      return `請根據以下聊天內容整理事件，合併相關對話並保留重要細節。不得補寫原文沒有的資訊。
+
+時間規則：${modeInstruction}
+
+整理規則：
+- 以繁體中文輸出，合併同一場景與連續事件，依順序整理。
+- 若事件延續前一切片，沿用前一摘要中的相同日期與標題，只整理本切片新增內容，方便程式合併。
+- 保留人物、地點、情緒變化、關係發展等重要資訊。
+- 親密互動若對情節重要，保留姿勢、動作順序、次數或首次經驗，以及雙方反應、同意或不適等重點，不需逐句重抄。
+- 資訊不足時標記「未記載」，不可推測。
+- 每個事件使用下列格式；「##」標題後立刻接子項目，中間不留空行：
+
+# 日期
+
+## 自取的標題
+- 時間：日期 - 時間。
+- 位置：地點。
+- 內容：事件大綱。
+
+目前是第 ${chunkNumber}/${totalChunks} 個切片。${previousSummary ? `\n前一切片摘要（僅供辨識延續事件，不要重複輸出）：\n${previousSummary}\n` : ""}
+以下為本切片內容：
+
+${chunk.map(formatPair).join("\n\n")}`;
+    }
+
+    function mergeSummaries(summaries) {
+      const dates = [];
+      const eventsByKey = new Map();
+      let currentDate = "未記載日期";
+
+      for (const summary of summaries) {
+        let currentEvent = null;
+        let currentField = null;
+
+        for (const line of summary.split(/\r?\n/)) {
+          const dateMatch = line.match(/^#\s+(.+?)\s*$/);
+          if (dateMatch) {
+            currentDate = dateMatch[1];
+            if (!dates.includes(currentDate)) dates.push(currentDate);
+            currentEvent = null;
+            currentField = null;
+            continue;
+          }
+
+          const titleMatch = line.match(/^##\s+(.+?)\s*$/);
+          if (titleMatch) {
+            const title = titleMatch[1];
+            const key = `${currentDate}\u0000${title.trim().toLocaleLowerCase()}`;
+            if (!eventsByKey.has(key)) {
+              const event = { date: currentDate, title, time: [], location: [], content: [] };
+              eventsByKey.set(key, event);
+              if (!dates.includes(currentDate)) dates.push(currentDate);
+            }
+            currentEvent = eventsByKey.get(key);
+            currentField = null;
+            continue;
+          }
+
+          if (!currentEvent) continue;
+          const fieldMatch = line.match(/^\s*-\s*(時間|位置|內容)\s*[：:]\s*(.*)$/);
+          if (fieldMatch) {
+            currentField = fieldMatch[1] === "時間"
+              ? "time"
+              : fieldMatch[1] === "位置" ? "location" : "content";
+            if (fieldMatch[2].trim()) currentEvent[currentField].push(fieldMatch[2].trim());
+            continue;
+          }
+
+          if (currentField && line.trim()) {
+            const values = currentEvent[currentField];
+            if (values.length) values[values.length - 1] += ` ${line.trim()}`;
+            else values.push(line.trim());
+          }
+        }
+      }
+
+      const renderedDates = [];
+      for (const date of dates) {
+        const renderedEvents = [];
+        for (const event of eventsByKey.values()) {
+          if (event.date !== date) continue;
+          const unique = values => [...new Set(values.map(value => value.replace(/\s+/g, " ").trim()).filter(Boolean))];
+          const withoutTrailingPeriod = values => unique(values.map(value => value.replace(/[。．.]+$/u, "").trim()));
+          const times = withoutTrailingPeriod(event.time);
+          const locations = withoutTrailingPeriod(event.location);
+          const contents = unique(event.content);
+          renderedEvents.push([
+            `## ${event.title}`,
+            `- 時間：${times.length ? times.join("；") : "未記載"}。`,
+            `- 位置：${locations.length ? locations.join("；") : "未記載"}。`,
+            `- 內容：${contents.length ? contents.join(" ") : "未記載"}`
+          ].join("\n"));
+        }
+        if (renderedEvents.length) renderedDates.push(`# ${date}\n\n${renderedEvents.join("\n\n")}`);
+      }
+      return renderedDates.join("\n\n");
+    }
+
+    async function callGemini(prompt, apiKey, endpoint, model) {
+      const base = endpoint.replace(/\/+$/, "");
+      const url = `${base}/models/${encodeURIComponent(model)}:generateContent`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const detail = data && data.error && data.error.message
+          ? data.error.message
+          : `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+
+      const text = data && data.candidates && data.candidates[0] &&
+        data.candidates[0].content && data.candidates[0].content.parts
+        ? data.candidates[0].content.parts.map(part => part.text || "").join("").trim()
+        : "";
+      if (!text) {
+        throw new Error("Gemini 回應沒有可用的文字內容。");
+      }
+      return text;
+    }
+
+    runButton.addEventListener("click", async () => {
+      const apiKey = apiKeyInput.value.trim();
+      const endpoint = endpointInput.value.trim();
+      const model = modelInput.value.trim();
+      const file = fileInput.files && fileInput.files[0];
+
+      if (!apiKey || !endpoint || !model || !file) {
+        setStatus("請填寫 API Key、API 端點、模型並選擇 .txt 文件。", true);
+        return;
+      }
+      if (!/^https:\/\//i.test(endpoint)) {
+        setStatus("API 端點必須使用 HTTPS。", true);
+        return;
+      }
+
+      runButton.disabled = true;
+      copyButton.disabled = true;
+      resultBox.value = "";
+      setStatus("正在讀取文件…", false);
+
+      const summaries = [];
+      try {
+        const text = await file.text();
+        const messages = parseMessages(text);
+        const pairs = pairMessages(messages);
+        const chunks = splitChunks(pairs, 20);
+        let previousSummary = "";
+
+        for (let i = 0; i < chunks.length; i++) {
+          setStatus(`正在整理第 ${i + 1}/${chunks.length} 個切片（共 ${pairs.length} 組對話）…`, false);
+          const prompt = buildChunkPrompt(chunks[i], i + 1, chunks.length, previousSummary);
+          const summary = await callGemini(prompt, apiKey, endpoint, model);
+          summaries.push(summary);
+          previousSummary = summary;
+        }
+
+        setStatus("切片整理完成，正在由程式合併結果…", false);
+        resultBox.value = mergeSummaries(summaries);
+
+        copyButton.disabled = !resultBox.value;
+        setStatus(`整理完成：${messages.length} 則訊息、${pairs.length} 組對話、${chunks.length} 個切片。`, false);
+      } catch (error) {
+        if (summaries.length) {
+          resultBox.value = mergeSummaries(summaries);
+          copyButton.disabled = false;
+        }
+        const message = error && error.message ? error.message : String(error);
+        setStatus(`整理失敗：${message}${summaries.length ? " 已保留成功完成的切片摘要。" : ""}`, true);
+      } finally {
+        runButton.disabled = false;
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      if (!resultBox.value) return;
+      try {
+        await navigator.clipboard.writeText(resultBox.value);
+        setStatus("整理結果已複製。", false);
+      } catch (error) {
+        resultBox.focus();
+        resultBox.select();
+        setStatus("無法自動複製，已選取結果文字；請使用 Ctrl+C 複製。", true);
+      }
+    });
+  </script>
+</body>
+</html>
