@@ -76,10 +76,18 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
       gap: 12px;
       margin-bottom: 14px;
       padding-bottom: 10px;
       border-bottom: 1px solid var(--border);
+    }
+
+    .step-header-actions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     .step-badge {
@@ -191,7 +199,7 @@
     .btn-retry {
       background: var(--danger-bg);
       color: var(--danger);
-      border-color: rgba(248, 113, 113, 0.45);
+      border-color: rgba(248, 113, 113, 0.5);
     }
     .btn-retry:hover:not(:disabled) {
       background: var(--danger);
@@ -297,35 +305,35 @@
       line-height: 1.5;
     }
 
-    /* 獨立切片卡片列表 */
-    .chunk-list {
+    /* 依日期區分的大綱結果卡片列表 */
+    .date-result-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       margin-top: 14px;
     }
 
-    .chunk-card {
+    .date-card {
       background: var(--bg-input);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 16px;
       transition: border-color 0.2s;
     }
 
-    .chunk-card.is-running {
+    .date-card.is-running {
       border-color: var(--accent);
     }
 
-    .chunk-card.is-error {
+    .date-card.is-error {
       border-color: rgba(248, 113, 113, 0.55);
     }
 
-    .chunk-card.is-done {
+    .date-card.is-done {
       border-color: rgba(74, 222, 128, 0.35);
     }
 
-    .chunk-head {
+    .date-card-head {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -334,24 +342,31 @@
       margin-bottom: 10px;
     }
 
-    .chunk-title-group {
+    .date-card-title-group {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
     }
 
-    .chunk-title {
-      font-weight: 700;
-      color: var(--text-main);
+    .date-card-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--accent);
     }
 
-    .chunk-meta {
+    .date-card-meta {
       font-size: 0.83rem;
       color: var(--text-muted);
     }
 
-    .chunk-badge {
+    .date-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-badge {
       padding: 2px 9px;
       border-radius: 999px;
       font-size: 0.78rem;
@@ -373,66 +388,59 @@
       color: var(--success);
     }
 
+    .badge-partial {
+      background: rgba(250, 204, 21, 0.16);
+      color: var(--accent);
+    }
+
     .badge-error {
       background: var(--danger-bg);
       color: var(--danger);
     }
 
-    .chunk-body {
+    .date-card-error-banner {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: var(--danger-bg);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: var(--danger);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    .date-card-body {
       margin: 0;
-      padding: 10px 12px;
+      padding: 12px 14px;
       border-radius: 8px;
       background: var(--bg-card);
       border: 1px solid var(--border);
       font-family: ui-monospace, Consolas, monospace;
-      font-size: 0.86rem;
-      line-height: 1.55;
+      font-size: 0.88rem;
+      line-height: 1.6;
       color: #e5e7eb;
       white-space: pre-wrap;
       word-break: break-word;
-      max-height: 240px;
+      max-height: 360px;
       overflow-y: auto;
     }
 
-    .chunk-body.error-text {
-      color: var(--danger);
-      background: rgba(248, 113, 113, 0.06);
-    }
-
-    .chunk-body.placeholder-text {
+    .date-card-body.placeholder-text {
       color: var(--text-muted);
       font-family: inherit;
-    }
-
-    /* 合併大綱區 */
-    .result-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-top: 26px;
-    }
-
-    textarea {
-      min-height: 300px;
-      margin-top: 10px;
-      resize: vertical;
-      font-family: ui-monospace, Consolas, monospace;
-      line-height: 1.55;
     }
 
     @media (max-width: 640px) {
       body { padding: 12px; }
       main { padding: 18px 14px; }
       .grid-2 { grid-template-columns: 1fr; }
-      .result-head { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <main>
     <h1>聊天紀錄 RAG 整理工具</h1>
-    <p class="intro">先依日期篩選需要整理的對話範圍並進行 20 組程式切片，再逐片交由 Gemini 整理；單一切片失敗時可個別重新傳送。</p>
+    <p class="intro">先依日期篩選需要整理的對話範圍並進行 20 組程式切片，再逐片交由 Gemini 整理並自動依日期合併；若某日有失敗切片，可直接在該日期旁按重新傳送。</p>
 
     <!-- API 設定區 -->
     <div class="field">
@@ -465,8 +473,8 @@
       <div class="field">
         <span class="field-title">2. 選擇日期區分模式</span>
         <div class="time-options" role="group" aria-label="選擇時間模式">
-          <button class="time-option" type="button" data-mode="status" aria-pressed="true">狀態列（場景內時間）</button>
-          <button class="time-option" type="button" data-mode="real" aria-pressed="false">系統標籤式（訊息時間戳記）</button>
+          <button class="time-option" type="button" data-mode="status" aria-pressed="true">狀態</button>
+          <button class="time-option" type="button" data-mode="real" aria-pressed="false">系統</button>
         </div>
         <p class="help">切換模式會自動重新擷取檔案中的日期清單；按鈕可多選（亮黃色代表已選取）。</p>
       </div>
@@ -490,24 +498,19 @@
       </div>
     </section>
 
-    <!-- 第二步驟：AI 逐片整理與個別重試 -->
+    <!-- 第二步驟：AI 逐片整理與依日期區分大綱 -->
     <section class="step-section" aria-labelledby="step2-title">
       <div class="step-header">
-        <h2 id="step2-title"><span class="step-badge">步驟 2</span>AI 逐片整理與切片紀錄</h2>
-        <button id="run-ai-btn" class="primary" type="button" disabled>開始 AI 整理全部切片</button>
+        <h2 id="step2-title"><span class="step-badge">步驟 2</span>大綱整理結果（依日期合併）</h2>
+        <div class="step-header-actions">
+          <button id="run-ai-btn" class="primary" type="button" disabled>開始 AI 整理全部切片</button>
+        </div>
       </div>
-      <p class="help" style="margin-top:0;">每個切片會獨立顯示狀態與結果；若某一片段失敗，可點擊該區塊旁的「重新傳送」單獨補跑。</p>
+      <p class="help" style="margin-top:0;">即使同一天分散在多個 20 組切片中，系統也會自動依日期收攏合併；若某天有切片失敗，可點擊該日期旁的「重新傳送」單獨補跑。</p>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
-      <div id="chunk-list" class="chunk-list"></div>
+      <div id="date-result-list" class="date-result-list"></div>
     </section>
-
-    <!-- 最終合併大綱 -->
-    <div class="result-head">
-      <h2>合併後大綱（自動彙整所有已完成切片）</h2>
-      <button id="copy" type="button" disabled>複製合併結果</button>
-    </div>
-    <textarea id="result" aria-label="整理結果" placeholder="當切片完成後，程式會自動將所有成功的切片依日期與事件合併在此處"></textarea>
   </main>
 
   <script>
@@ -525,18 +528,16 @@
 
     const runAiBtn = document.getElementById("run-ai-btn");
     const statusBox = document.getElementById("status");
-    const chunkListBox = document.getElementById("chunk-list");
-
-    const copyButton = document.getElementById("copy");
-    const resultBox = document.getElementById("result");
+    const dateResultListBox = document.getElementById("date-result-list");
 
     // 狀態管理
     let timeMode = "status"; // "status" | "real"
     let rawFileText = "";
-    let parsedPairs = [];    // 全部對話組（已綁定 statusDate 與 realDate）
-    let availableDates = []; // [{ date, count }]
+    let parsedPairs = [];        // 全部對話組
+    let availableDates = [];     // [{ date, count }]
     let selectedDates = new Set();
-    let chunkRecords = [];   // [{ index, pairs, dateLabel, status: 'pending'|'running'|'done'|'error', summary, error }]
+    let orderedTargetDates = []; // 步驟一確認後要呈現的日期順序
+    let chunkRecords = [];       // [{ index, pairs, datesInChunk: Set<string>, status: 'pending'|'running'|'done'|'error', summary, error }]
     let isBatchRunning = false;
 
     function setStatus(message, isError = false) {
@@ -577,26 +578,25 @@
       });
     }
 
-    // 從單則訊息文字中擷取狀態列日期（支援「時間：十二月二十四日 - 21:00」或「時間：2026/01/29 ...」等常見寫法）
+    // 從單則訊息文字中擷取狀態列日期
     function extractStatusDateFromText(text) {
       const match = text.match(/(?:^|\n)\s*(?:[-*•]\s*)?時間\s*[：:]\s*([^\r\n]+)/);
       if (!match) return null;
       let raw = match[1].trim();
-      // 去掉後方的時間部分（例如 " - 21:00"、" 21:00"、"（週三）" 等）
       raw = raw.split(/\s*[-–—|｜]\s*\d{1,2}\s*[:：]\s*\d{2}/)[0];
       raw = raw.replace(/\s+\d{1,2}\s*[:：]\s*\d{2}.*$/, "").trim();
       raw = raw.replace(/[。．.]+$/, "").trim();
       return raw || null;
     }
 
-    // 將系統時間戳記 YYYY-MM-DD 轉為中文格式（與 prompt 規則一致）
+    // 將系統時間戳記 YYYY-MM-DD 轉為中文格式
     function formatRealDate(timestamp) {
       const m = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})/);
       if (!m) return "未記載日期";
       return `${m[1]}年${m[2]}月${m[3]}日`;
     }
 
-    // 配對對話並標記兩種模式的日期（若某組缺少狀態列時間，沿用上一組已知的狀態列日期）
+    // 配對對話並標記兩種模式的日期
     function pairMessagesWithDates(messages) {
       const pairs = [];
       let lastKnownStatusDate = "未記載日期";
@@ -716,7 +716,7 @@
       renderDateButtons();
     });
 
-    // 步驟一完成：執行 20 組程式切片
+    // 步驟一完成：執行 20 組程式切片，並建立日期清單
     sliceBtn.addEventListener("click", () => {
       const filteredPairs = parsedPairs.filter(p => selectedDates.has(getPairDate(p)));
       if (filteredPairs.length === 0) {
@@ -724,25 +724,27 @@
         return;
       }
 
+      orderedTargetDates = availableDates
+        .map(item => item.date)
+        .filter(date => selectedDates.has(date));
+
       chunkRecords = [];
       for (let i = 0; i < filteredPairs.length; i += 20) {
         const slicePairs = filteredPairs.slice(i, i + 20);
-        const datesInSlice = [...new Set(slicePairs.map(getPairDate))];
+        const datesInChunk = new Set(slicePairs.map(getPairDate));
         chunkRecords.push({
           index: chunkRecords.length,
           pairs: slicePairs,
-          dateLabel: datesInSlice.join("、"),
+          datesInChunk,
           status: "pending",
           summary: "",
           error: ""
         });
       }
 
-      resultBox.value = "";
-      copyButton.disabled = true;
       runAiBtn.disabled = chunkRecords.length === 0;
-      renderChunkCards();
-      setStatus(`程式切片完成：已將 ${filteredPairs.length} 組對話切分為 ${chunkRecords.length} 個獨立切片，可點擊「開始 AI 整理全部切片」。`, false);
+      renderDateResultCards();
+      setStatus(`程式切片完成：已將 ${filteredPairs.length} 組對話（涵蓋 ${orderedTargetDates.length} 個日期）切分為 ${chunkRecords.length} 個切片，請點擊「開始 AI 整理全部切片」。`, false);
     });
 
     function formatPair(pair) {
@@ -816,7 +818,7 @@ ${chunk.map(formatPair).join("\n\n")}`;
       return text;
     }
 
-    // 執行單一切片的 AI 請求（可用於批次執行與單點重新傳送）
+    // 執行單一切片的 AI 請求
     async function processSingleChunk(index) {
       const apiKey = apiKeyInput.value.trim();
       const endpoint = endpointInput.value.trim();
@@ -834,7 +836,6 @@ ${chunk.map(formatPair).join("\n\n")}`;
       const record = chunkRecords[index];
       if (!record) return false;
 
-      // 尋找前一個成功切片的摘要作為上下文衔接
       let previousSummary = "";
       for (let i = index - 1; i >= 0; i--) {
         if (chunkRecords[i].status === "done" && chunkRecords[i].summary) {
@@ -845,7 +846,7 @@ ${chunk.map(formatPair).join("\n\n")}`;
 
       record.status = "running";
       record.error = "";
-      renderChunkCards();
+      renderDateResultCards();
 
       try {
         const prompt = buildChunkPrompt(record.pairs, index + 1, chunkRecords.length, previousSummary);
@@ -853,13 +854,12 @@ ${chunk.map(formatPair).join("\n\n")}`;
         record.status = "done";
         record.summary = summary;
         record.error = "";
-        updateMergedOutput();
-        renderChunkCards();
+        renderDateResultCards();
         return true;
       } catch (err) {
         record.status = "error";
         record.error = err && err.message ? err.message : String(err);
-        renderChunkCards();
+        renderDateResultCards();
         return false;
       }
     }
@@ -881,7 +881,6 @@ ${chunk.map(formatPair).join("\n\n")}`;
       sliceBtn.disabled = true;
 
       for (let i = 0; i < chunkRecords.length; i++) {
-        // 若該切片已經成功完成，跳過不重複浪費額度
         if (chunkRecords[i].status === "done") continue;
         setStatus(`正在處理第 ${i + 1} / ${chunkRecords.length} 個切片…`, false);
         await processSingleChunk(i);
@@ -890,116 +889,39 @@ ${chunk.map(formatPair).join("\n\n")}`;
       isBatchRunning = false;
       runAiBtn.disabled = false;
       sliceBtn.disabled = false;
+      renderDateResultCards();
 
       const doneCount = chunkRecords.filter(c => c.status === "done").length;
       const errCount = chunkRecords.filter(c => c.status === "error").length;
 
       if (errCount > 0) {
-        setStatus(`整理結束：${doneCount} 個成功，${errCount} 個失敗。請在失敗的切片卡片旁點擊「重新傳送」。`, true);
+        setStatus(`整理結束：${doneCount} 個切片成功，${errCount} 個切片失敗。請在失敗日期旁點擊「重新傳送」。`, true);
       } else {
-        setStatus(`全部 ${doneCount} 個切片皆已整理完成並合併！`, false);
+        setStatus(`全部 ${doneCount} 個切片皆已整理完成並依日期合併！`, false);
       }
     });
 
-    // 渲染每一個獨立切片卡片
-    function renderChunkCards() {
-      chunkListBox.innerHTML = "";
-
-      for (const record of chunkRecords) {
-        const card = document.createElement("div");
-        card.className = `chunk-card is-${record.status}`;
-
-        const head = document.createElement("div");
-        head.className = "chunk-head";
-
-        const titleGroup = document.createElement("div");
-        titleGroup.className = "chunk-title-group";
-
-        const title = document.createElement("span");
-        title.className = "chunk-title";
-        title.textContent = `切片 #${record.index + 1}`;
-
-        const firstNum = record.pairs[0].number;
-        const lastNum = record.pairs[record.pairs.length - 1].number;
-        const meta = document.createElement("span");
-        meta.className = "chunk-meta";
-        meta.textContent = `（對話組 ${firstNum}–${lastNum}｜日期：${record.dateLabel}）`;
-
-        const badge = document.createElement("span");
-        badge.className = `chunk-badge badge-${record.status}`;
-        const statusTextMap = {
-          pending: "等待整理",
-          running: "AI 整理中…",
-          done: "已完成",
-          error: "失敗"
-        };
-        badge.textContent = statusTextMap[record.status];
-
-        titleGroup.append(title, meta, badge);
-        head.appendChild(titleGroup);
-
-        // 若該切片失敗（或已完成想重跑），提供重新傳送按鈕
-        if (record.status === "error" || record.status === "done") {
-          const retryBtn = document.createElement("button");
-          retryBtn.type = "button";
-          retryBtn.className = record.status === "error" ? "btn-small btn-retry" : "btn-small";
-          retryBtn.textContent = record.status === "error" ? "重新傳送" : "重新整理此片";
-          retryBtn.disabled = isBatchRunning;
-          retryBtn.addEventListener("click", async () => {
-            setStatus(`正在重新傳送切片 #${record.index + 1}…`, false);
-            const ok = await processSingleChunk(record.index);
-            if (ok) {
-              setStatus(`切片 #${record.index + 1} 重新傳送成功，已更新合併大綱！`, false);
-            } else {
-              setStatus(`切片 #${record.index + 1} 再次失敗：${record.error}`, true);
-            }
-          });
-          head.appendChild(retryBtn);
-        }
-
-        const body = document.createElement("pre");
-        body.className = "chunk-body";
-        if (record.status === "done") {
-          body.textContent = record.summary;
-        } else if (record.status === "error") {
-          body.classList.add("error-text");
-          body.textContent = `錯誤原因：${record.error}`;
-        } else if (record.status === "running") {
-          body.classList.add("placeholder-text");
-          body.textContent = "正在等待 Gemini 回傳整理結果…";
-        } else {
-          body.classList.add("placeholder-text");
-          body.textContent = `包含 ${record.pairs.length} 組對話，尚未送出 AI 整理。`;
-        }
-
-        card.append(head, body);
-        chunkListBox.appendChild(card);
-      }
-    }
-
-    function updateMergedOutput() {
+    // 將所有已完成的切片解析並依日期分組合併
+    function buildMergedMapByDate() {
       const completedSummaries = chunkRecords
         .filter(c => c.status === "done" && c.summary)
         .map(c => c.summary);
 
-      resultBox.value = mergeSummaries(completedSummaries);
-      copyButton.disabled = !resultBox.value;
-    }
-
-    function mergeSummaries(summaries) {
-      const dates = [];
-      const eventsByKey = new Map();
+      const eventsByDateAndTitle = new Map();
+      const extraDates = [];
       let currentDate = "未記載日期";
 
-      for (const summary of summaries) {
+      for (const summary of completedSummaries) {
         let currentEvent = null;
         let currentField = null;
 
         for (const line of summary.split(/\r?\n/)) {
           const dateMatch = line.match(/^#\s+(.+?)\s*$/);
           if (dateMatch) {
-            currentDate = dateMatch[1];
-            if (!dates.includes(currentDate)) dates.push(currentDate);
+            currentDate = dateMatch[1].trim();
+            if (!orderedTargetDates.includes(currentDate) && !extraDates.includes(currentDate)) {
+              extraDates.push(currentDate);
+            }
             currentEvent = null;
             currentField = null;
             continue;
@@ -1007,14 +929,18 @@ ${chunk.map(formatPair).join("\n\n")}`;
 
           const titleMatch = line.match(/^##\s+(.+?)\s*$/);
           if (titleMatch) {
-            const title = titleMatch[1];
-            const key = `${currentDate}\u0000${title.trim().toLocaleLowerCase()}`;
-            if (!eventsByKey.has(key)) {
-              const event = { date: currentDate, title, time: [], location: [], content: [] };
-              eventsByKey.set(key, event);
-              if (!dates.includes(currentDate)) dates.push(currentDate);
+            const title = titleMatch[1].trim();
+            const key = `${currentDate}\u0000${title.toLocaleLowerCase()}`;
+            if (!eventsByDateAndTitle.has(key)) {
+              eventsByDateAndTitle.set(key, {
+                date: currentDate,
+                title,
+                time: [],
+                location: [],
+                content: []
+              });
             }
-            currentEvent = eventsByKey.get(key);
+            currentEvent = eventsByDateAndTitle.get(key);
             currentField = null;
             continue;
           }
@@ -1037,16 +963,19 @@ ${chunk.map(formatPair).join("\n\n")}`;
         }
       }
 
-      const renderedDates = [];
-      for (const date of dates) {
+      const allDatesToRender = [...orderedTargetDates, ...extraDates];
+      const mergedByDate = new Map();
+
+      for (const date of allDatesToRender) {
         const renderedEvents = [];
-        for (const event of eventsByKey.values()) {
+        for (const event of eventsByDateAndTitle.values()) {
           if (event.date !== date) continue;
-          const unique = values => [...new Set(values.map(value => value.replace(/\s+/g, " ").trim()).filter(Boolean))];
-          const withoutTrailingPeriod = values => unique(values.map(value => value.replace(/[。．.]+$/u, "").trim()));
+          const unique = values => [...new Set(values.map(v => v.replace(/\s+/g, " ").trim()).filter(Boolean))];
+          const withoutTrailingPeriod = values => unique(values.map(v => v.replace(/[。．.]+$/u, "").trim()));
           const times = withoutTrailingPeriod(event.time);
           const locations = withoutTrailingPeriod(event.location);
           const contents = unique(event.content);
+
           renderedEvents.push([
             `## ${event.title}`,
             `- 時間：${times.length ? times.join("；") : "未記載"}。`,
@@ -1054,22 +983,154 @@ ${chunk.map(formatPair).join("\n\n")}`;
             `- 內容：${contents.length ? contents.join(" ") : "未記載"}`
           ].join("\n"));
         }
-        if (renderedEvents.length) renderedDates.push(`# ${date}\n\n${renderedEvents.join("\n\n")}`);
+        mergedByDate.set(date, renderedEvents.join("\n\n"));
       }
-      return renderedDates.join("\n\n");
+
+      return { allDatesToRender, mergedByDate };
     }
 
-    copyButton.addEventListener("click", async () => {
-      if (!resultBox.value) return;
-      try {
-        await navigator.clipboard.writeText(resultBox.value);
-        setStatus("合併結果已複製到剪貼簿。", false);
-      } catch (error) {
-        resultBox.focus();
-        resultBox.select();
-        setStatus("無法自動複製，已選取結果文字；請使用 Ctrl+C 複製。", true);
+    // 渲染依日期區分的大綱卡片（每個日期各自一個區塊）
+    function renderDateResultCards() {
+      dateResultListBox.innerHTML = "";
+      if (chunkRecords.length === 0) return;
+
+      const { allDatesToRender, mergedByDate } = buildMergedMapByDate();
+
+      for (const date of allDatesToRender) {
+        const relatedChunks = chunkRecords.filter(c => c.datesInChunk.has(date));
+        const failedChunks = relatedChunks.filter(c => c.status === "error");
+        const runningChunks = relatedChunks.filter(c => c.status === "running");
+        const doneChunks = relatedChunks.filter(c => c.status === "done");
+
+        const mergedContent = mergedByDate.get(date) || "";
+
+        let cardState = "pending";
+        let badgeText = "等待整理";
+        if (runningChunks.length > 0) {
+          cardState = "running";
+          badgeText = "AI 整理中…";
+        } else if (failedChunks.length > 0) {
+          cardState = "error";
+          badgeText = `失敗（${failedChunks.length} 個切片異常）`;
+        } else if (relatedChunks.length > 0 && doneChunks.length === relatedChunks.length) {
+          cardState = "done";
+          badgeText = "已完成";
+        } else if (doneChunks.length > 0) {
+          cardState = "partial";
+          badgeText = `部分完成（${doneChunks.length}/${relatedChunks.length}）`;
+        }
+
+        const card = document.createElement("div");
+        card.className = `date-card is-${cardState === "partial" ? "running" : cardState}`;
+
+        const head = document.createElement("div");
+        head.className = "date-card-head";
+
+        const titleGroup = document.createElement("div");
+        titleGroup.className = "date-card-title-group";
+
+        const title = document.createElement("span");
+        title.className = "date-card-title";
+        title.textContent = date;
+
+        const meta = document.createElement("span");
+        meta.className = "date-card-meta";
+        if (relatedChunks.length > 0) {
+          const sliceNums = relatedChunks.map(c => `#${c.index + 1}`).join("、");
+          meta.textContent = `（來源切片：${sliceNums}）`;
+        }
+
+        const badge = document.createElement("span");
+        badge.className = `status-badge badge-${cardState}`;
+        badge.textContent = badgeText;
+
+        titleGroup.append(title, meta, badge);
+
+        const actionsGroup = document.createElement("div");
+        actionsGroup.className = "date-card-actions";
+
+        if (failedChunks.length > 0) {
+          const retryBtn = document.createElement("button");
+          retryBtn.type = "button";
+          retryBtn.className = "btn-small btn-retry";
+          retryBtn.textContent = `重新傳送（${failedChunks.length} 片）`;
+          retryBtn.disabled = isBatchRunning;
+          retryBtn.addEventListener("click", async () => {
+            if (isBatchRunning) return;
+            isBatchRunning = true;
+            runAiBtn.disabled = true;
+            sliceBtn.disabled = true;
+            renderDateResultCards();
+
+            let allOk = true;
+            for (const fc of failedChunks) {
+              setStatus(`正在重新傳送「${date}」的失敗切片 #${fc.index + 1}…`, false);
+              const ok = await processSingleChunk(fc.index);
+              if (!ok) allOk = false;
+            }
+
+            isBatchRunning = false;
+            runAiBtn.disabled = false;
+            sliceBtn.disabled = false;
+            renderDateResultCards();
+
+            if (allOk) {
+              setStatus(`「${date}」的失敗切片已重新傳送完成並更新大綱！`, false);
+            } else {
+              setStatus(`「${date}」仍有切片傳送失敗，請檢查錯誤原因後再試。`, true);
+            }
+          });
+          actionsGroup.appendChild(retryBtn);
+        }
+
+        if (mergedContent) {
+          const copyDayBtn = document.createElement("button");
+          copyDayBtn.type = "button";
+          copyDayBtn.className = "btn-small";
+          copyDayBtn.textContent = "複製此日";
+          copyDayBtn.addEventListener("click", async () => {
+            const singleDayMarkdown = `# ${date}\n\n${mergedContent}`;
+            try {
+              await navigator.clipboard.writeText(singleDayMarkdown);
+              setStatus(`已複製「${date}」的大綱內容。`, false);
+            } catch {
+              setStatus("複製失敗，請手動選取文字複製。", true);
+            }
+          });
+          actionsGroup.appendChild(copyDayBtn);
+        }
+
+        head.append(titleGroup, actionsGroup);
+        card.appendChild(head);
+
+        if (failedChunks.length > 0) {
+          const errBanner = document.createElement("div");
+          errBanner.className = "date-card-error-banner";
+          errBanner.textContent = failedChunks
+            .map(fc => `切片 #${fc.index + 1} 錯誤：${fc.error}`)
+            .join(" ｜ ");
+          card.appendChild(errBanner);
+        }
+
+        const body = document.createElement("pre");
+        body.className = "date-card-body";
+        if (mergedContent) {
+          body.textContent = mergedContent;
+        } else {
+          body.classList.add("placeholder-text");
+          if (runningChunks.length > 0) {
+            body.textContent = "正在等待 Gemini 回傳此日期的整理結果…";
+          } else if (failedChunks.length > 0) {
+            body.textContent = "此日期的切片尚未成功整理，請點擊上方「重新傳送」按鈕。";
+          } else {
+            body.textContent = "等待執行 AI 整理…";
+          }
+        }
+
+        card.appendChild(body);
+        dateResultListBox.appendChild(card);
       }
-    });
+    }
 
     function escapeHtml(str) {
       return String(str)
